@@ -1,7 +1,7 @@
 name: FPL unattended delivery simulation
 on:
   schedule:
-    - cron: '10,25 9 18 10 *'
+    - cron: '20,35 10 17 10 *'
   workflow_dispatch:
 permissions:
   contents: read
@@ -10,12 +10,12 @@ concurrency:
   cancel-in-progress: false
 jobs:
   simulate:
-    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '10,25 9 18 10 *'
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '20,35 10 17 10 *'
     runs-on: ubuntu-latest
     steps:
-      - name: Restrict scheduled simulation to 18 October 2026
+      - name: Restrict scheduled simulation to 17 October 2026
         if: github.event_name == 'schedule'
-        run: test "$(date -u +%Y-%m-%d)" = "2026-10-18"
+        run: test "$(date -u +%Y-%m-%d)" = "2026-10-17"
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
@@ -37,7 +37,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: .fpl-simulation-delivered
-          key: fpl-simulation-20261018-gw6
+          key: fpl-simulation-20261017-gw6
           lookup-only: true
       - name: Send actual report through production sender
         if: steps.prior.outputs.cache-hit != 'true'
@@ -57,7 +57,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: .fpl-simulation-delivered
-          key: fpl-simulation-20261018-gw6
+          key: fpl-simulation-20261017-gw6
       - name: Confirm duplicate skip on second run
         if: steps.prior.outputs.cache-hit == 'true'
         run: echo "DUPLICATE_SKIP_PASS - already delivered, no email sent"
