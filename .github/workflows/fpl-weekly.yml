@@ -7,6 +7,7 @@ on:
       - 'app.py'
   schedule:
     - cron: '15 9 * * *'
+    - cron: '45 9 17 10 *'
   workflow_dispatch:
 permissions:
   contents: read
@@ -17,6 +18,9 @@ jobs:
   email:
     runs-on: ubuntu-latest
     steps:
+      - name: Validate one-time test date
+        if: github.event.schedule == '45 9 17 10 *'
+        run: test "$(date -u +%Y-%m-%d)" = '2026-10-17'
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
@@ -40,7 +44,7 @@ jobs:
           key: fpl-sent-gw-${{ steps.gw.outputs.gw }}
           lookup-only: true
       - name: Send new report
-        if: steps.sent.outputs.cache-hit != 'true'
+        if: steps.sent.outputs.cache-hit != 'true' || github.event.schedule == '45 9 17 10 *'
         env:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           FPL_ENTRY_ID: '3363511'
@@ -51,7 +55,7 @@ jobs:
           mkdir -p .fpl-sent
           echo "${{ steps.gw.outputs.gw }}" > .fpl-sent/gameweek
       - name: Record successful delivery
-        if: steps.sent.outputs.cache-hit != 'true'
+        if: steps.sent.outputs.cache-hit != 'true' && github.event.schedule != '45 9 17 10 *'
         uses: actions/cache/save@v4
         with:
           path: .fpl-sent
