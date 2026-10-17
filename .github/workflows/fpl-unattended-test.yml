@@ -1,0 +1,63 @@
+name: FPL unattended delivery simulation
+on:
+  schedule:
+    - cron: '10,25 9 18 10 *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: fpl-pre-gw7-simulation
+  cancel-in-progress: false
+jobs:
+  simulate:
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '10,25 9 18 10 *'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Restrict scheduled simulation to 18 October 2026
+        if: github.event_name == 'schedule'
+        run: test "$(date -u +%Y-%m-%d)" = "2026-10-18"
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify completed GW6 and report structure
+        run: |
+          python - <<'PY'
+          from app import report
+          d=report(gw=6)
+          assert d['team_points']==68, d['team_points']
+          assert len(d['players'])==15
+          assert len([p for p in d['players'] if p['multiplier']>0])==11
+          assert len([p for p in d['players'] if p['multiplier']==0])==4
+          assert sum(p['counted_points'] for p in d['players'])==68
+          print('SIMULATION_DATA_CHECK_PASS')
+          PY
+      - name: Check independent test delivery state
+        id: prior
+        uses: actions/cache/restore@v4
+        with:
+          path: .fpl-simulation-delivered
+          key: fpl-simulation-20261018-gw6
+          lookup-only: true
+      - name: Send actual report through production sender
+        if: steps.prior.outputs.cache-hit != 'true'
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          FPL_ENTRY_ID: '3363511'
+          FPL_RECIPIENT: 'adamzfeldman@gmail.com'
+          FPL_FROM: ${{ vars.FPL_FROM }}
+          FPL_REPORT_GW: '6'
+          FPL_TEST_MODE: '1'
+        run: |
+          python weekly_email.py
+          mkdir -p .fpl-simulation-delivered
+          echo "GW6 test delivered" > .fpl-simulation-delivered/status
+      - name: Record successful simulated delivery
+        if: steps.prior.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .fpl-simulation-delivered
+          key: fpl-simulation-20261018-gw6
+      - name: Confirm duplicate skip on second run
+        if: steps.prior.outputs.cache-hit == 'true'
+        run: echo "DUPLICATE_SKIP_PASS - already delivered, no email sent"
