@@ -27,6 +27,14 @@ def report(gw=None):
     picks = fetch(f"entry/{ENTRY}/event/{gw}/picks/", 1800)
     players = {p["id"]: p for p in bootstrap["elements"]}
     teams = {t["id"]: t["short_name"] for t in bootstrap["teams"]}
+    fixtures = fetch("fixtures/?future=1", 900)
+    next_by_team = {}
+    for fixture in sorted(fixtures, key=lambda x: x.get("kickoff_time") or "9999"):
+        if fixture.get("finished") or not fixture.get("kickoff_time"):
+            continue
+        for tid, opp, home, difficulty in ((fixture["team_h"], fixture["team_a"], True, fixture.get("team_h_difficulty")), (fixture["team_a"], fixture["team_h"], False, fixture.get("team_a_difficulty"))):
+            if tid not in next_by_team:
+                next_by_team[tid] = {"opponent": teams.get(opp), "home": home, "difficulty": difficulty, "kickoff": fixture["kickoff_time"]}
     output = []
     for pick in picks["picks"]:
         player = players[pick["element"]]
@@ -45,8 +53,12 @@ def report(gw=None):
             "goals": metric("goals_scored"), "assists": metric("assists"),
             "clean_sheets": metric("clean_sheets"), "bonus": metric("bonus"),
             "expected_goals": metric("expected_goals"),
-            "expected_assists": metric("expected_assists")
+            "expected_assists": metric("expected_assists"),
+            "saves": metric("saves"), "expected_goals_conceded": metric("expected_goals_conceded"),
+            "is_goalkeeper": player["element_type"] == 1,
+            "next_fixture": next_by_team.get(player["team"])
         })
+    output.sort(key=lambda p: (-p["counted_points"], p["position"]))
     result = {"entry_id": ENTRY, "gameweek": gw, "team_points": picks.get("entry_history", {}).get("points"), "players": output}
     print("FPL_REPORT_JSON=" + json.dumps(result), flush=True)
     return result
