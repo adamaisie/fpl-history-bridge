@@ -55,6 +55,7 @@ def report(gw=None):
             "expected_goals": metric("expected_goals"),
             "expected_assists": metric("expected_assists"),
             "saves": metric("saves"), "expected_goals_conceded": metric("expected_goals_conceded"),
+            "defcon": metric("defensive_contribution"), "is_defender": player["element_type"] == 2,
             "is_goalkeeper": player["element_type"] == 1,
             "next_fixture": next_by_team.get(player["team"])
         })
