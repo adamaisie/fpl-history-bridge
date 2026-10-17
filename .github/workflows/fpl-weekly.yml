@@ -1,0 +1,22 @@
+name: FPL weekly report
+on:
+  schedule:
+    - cron: '15 9 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  email:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Generate and send FPL report
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          FPL_ENTRY_ID: '3363511'
+          FPL_RECIPIENT: 'adamzfeldman@gmail.com'
+          FPL_FROM: ${{ vars.FPL_FROM }}
+        run: python weekly_email.py
