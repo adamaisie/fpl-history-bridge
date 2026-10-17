@@ -5,6 +5,9 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: fpl-weekly-email
+  cancel-in-progress: false
 jobs:
   email:
     runs-on: ubuntu-latest
@@ -13,10 +16,38 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Generate and send FPL report
+      - name: Determine completed gameweek
+        id: gw
+        run: |
+          python - <<'PY'
+          import os
+          from app import fetch
+          events=fetch('bootstrap-static/')["events"]
+          gw=max(e["id"] for e in events if e.get("finished"))
+          with open(os.environ["GITHUB_OUTPUT"],"a") as f:
+              f.write(f"gw={gw}\n")
+          PY
+      - name: Check previously sent gameweek
+        id: sent
+        uses: actions/cache/restore@v4
+        with:
+          path: .fpl-sent
+          key: fpl-sent-gw-${{ steps.gw.outputs.gw }}
+          lookup-only: true
+      - name: Send new report
+        if: steps.sent.outputs.cache-hit != 'true'
         env:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           FPL_ENTRY_ID: '3363511'
           FPL_RECIPIENT: 'adamzfeldman@gmail.com'
           FPL_FROM: ${{ vars.FPL_FROM }}
-        run: python weekly_email.py
+        run: |
+          python weekly_email.py
+          mkdir -p .fpl-sent
+          echo "${{ steps.gw.outputs.gw }}" > .fpl-sent/gameweek
+      - name: Record successful delivery
+        if: steps.sent.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .fpl-sent
+          key: fpl-sent-gw-${{ steps.gw.outputs.gw }}
