@@ -1,0 +1,44 @@
+name: FPL preflight checks
+on:
+  push:
+    paths:
+      - 'app.py'
+      - 'weekly_email.py'
+      - '.github/workflows/fpl-preflight.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify live completed GW6 and unfinished GW7 protection
+        run: |
+          python - <<'PY'
+          from app import report,fetch
+          d=report(gw=6)
+          assert d["entry_id"] == 3363511
+          assert d["gameweek"] == 6
+          assert d["team_points"] == 68
+          assert len(d["players"]) == 15
+          assert len([p for p in d["players"] if p["multiplier"]>0]) == 11
+          assert len([p for p in d["players"] if p["multiplier"]==0]) == 4
+          assert sum(p["counted_points"] for p in d["players"]) == d["team_points"]
+          assert sum(p["captain"] for p in d["players"]) == 1
+          assert all(p["next_fixture"] for p in d["players"])
+          assert all("defcon" in p and "expected_goals_conceded" in p and "expected_goals" in p and "expected_assists" in p for p in d["players"])
+          assert not any(e["id"]==7 and e.get("finished") for e in fetch("bootstrap-static/")["events"]), "GW7 is unexpectedly complete; preflight must be updated"
+          try:
+              report(gw=7)
+          except ValueError as exc:
+              assert "not completed" in str(exc)
+          else:
+              raise AssertionError("Incomplete GW7 was accepted")
+          print("PREFLIGHT_PASS: live data, 68 points, 15 players, 11 starters, 4 bench, captain, metrics, fixtures, unfinished-GW protection")
+          PY
+      - name: Validate HTML email script syntax
+        run: python -m py_compile weekly_email.py app.py
