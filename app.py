@@ -47,7 +47,9 @@ def report(gw=None):
             "expected_goals": metric("expected_goals"),
             "expected_assists": metric("expected_assists")
         })
-    return {"entry_id": ENTRY, "gameweek": gw, "team_points": picks.get("entry_history", {}).get("points"), "players": output}
+    result = {"entry_id": ENTRY, "gameweek": gw, "team_points": picks.get("entry_history", {}).get("points"), "players": output}
+    print("FPL_REPORT_JSON=" + json.dumps(result), flush=True)
+    return result
 
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
