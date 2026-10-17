@@ -8,7 +8,7 @@ API_KEY = os.environ.get("RESEND_API_KEY")
 if not API_KEY:
     raise RuntimeError("RESEND_API_KEY missing. Configure GitHub Actions repository secret.")
 
-data = report()
+data = report(gw=os.environ.get('FPL_REPORT_GW') or None)
 gw = data["gameweek"]
 players = data["players"]
 starters = sorted((p for p in players if p["multiplier"] > 0), key=lambda p: -p["counted_points"])
@@ -30,7 +30,8 @@ def block(p, on_bench=False):
     return f'<div style="padding:10px 0;border-bottom:1px solid #e5e7eb"><div style="font-size:16px"><b>{n}</b> <b style="float:right">{pts} pts</b></div><div style="margin-top:4px">{stats}</div><div style="color:#526070">Next: {fixture}</div></div>'
 best = max(starters, key=lambda p:p["counted_points"])
 content = f'<div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;color:#17212b;font-size:14px;line-height:1.45"><h2>FPL Weekly Review · GW{gw}</h2><div style="font-size:32px;font-weight:700">{data["team_points"]} pts</div><div style="color:#596575;margin-bottom:16px">Total gameweek score · Team {data["entry_id"]}</div><p>Top scorer: {html.escape(best["name"])} ({int(best["counted_points"])} pts). Underlying numbers and next fixtures below.</p><h3>Starting XI</h3>'+''.join(block(p) for p in starters)+'<h3>Bench · actual player points</h3>'+''.join(block(p, True) for p in bench)+'</div>'
-payload = {"from":FROM,"to":[TO],"subject":f"FPL GW{gw} — weekly squad review","html":content}
+prefix = "[AUTOMATED TEST] " if os.environ.get("FPL_TEST_MODE") == "1" else ""
+payload = {"from":FROM,"to":[TO],"subject":f"{prefix}FPL GW{gw} — weekly squad review","html":content}
 # curl uses a standard HTTP/TLS client fingerprint rather than Python urllib.
 import subprocess
 response = subprocess.run([
