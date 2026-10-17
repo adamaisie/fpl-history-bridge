@@ -1,0 +1,13 @@
+{
+  "has_clean_sheet_market": true,
+  "has_score_or_assist_market": true,
+  "has_percentages": false,
+  "page_bytes": 19720,
+  "visible_text_items": 69
+}
+Traceback (most recent call last):
+  File "/home/runner/work/fpl-history-bridge/fpl-history-bridge/fpl_toolkit_odds.py", line 43, in <module>
+    probe()
+  File "/home/runner/work/fpl-history-bridge/fpl-history-bridge/fpl_toolkit_odds.py", line 39, in probe
+    raise RuntimeError("FPL Toolkit page does not expose the required markets in fetched HTML")
+RuntimeError: FPL Toolkit page does not expose the required markets in fetched HTML
