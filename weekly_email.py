@@ -31,10 +31,18 @@ def block(p, on_bench=False):
 best = max(starters, key=lambda p:p["counted_points"])
 content = f'<div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;color:#17212b;font-size:14px;line-height:1.45"><h2>FPL Weekly Review · GW{gw}</h2><div style="font-size:32px;font-weight:700">{data["team_points"]} pts</div><div style="color:#596575;margin-bottom:16px">Total gameweek score · Team {data["entry_id"]}</div><p>Top scorer: {html.escape(best["name"])} ({int(best["counted_points"])} pts). Underlying numbers and next fixtures below.</p><h3>Starting XI</h3>'+''.join(block(p) for p in starters)+'<h3>Bench · actual player points</h3>'+''.join(block(p, True) for p in bench)+'</div>'
 payload = {"from":FROM,"to":[TO],"subject":f"FPL GW{gw} — weekly squad review","html":content}
-req = urllib.request.Request("https://api.resend.com/emails",data=json.dumps(payload).encode(),headers={"Authorization":"Bearer "+API_KEY,"Content-Type":"application/json","User-Agent":"FPLWeeklyReport/1.0","Accept":"application/json"},method="POST")
-try:
-    with urllib.request.urlopen(req,timeout=30) as response:
-        print("EMAIL_SENT "+response.read().decode())
-except urllib.error.HTTPError as e:
-    print("EMAIL_SEND_FAILED "+str(e.code)+" "+e.read().decode())
-    raise
+# curl uses a standard HTTP/TLS client fingerprint rather than Python urllib.
+import subprocess
+response = subprocess.run([
+    "curl", "--silent", "--show-error", "--max-time", "35",
+    "--request", "POST", "https://api.resend.com/emails",
+    "--header", "Authorization: Bearer " + API_KEY,
+    "--header", "Content-Type: application/json",
+    "--header", "Accept: application/json",
+    "--data-binary", "@-","--write-out","\\nHTTP_STATUS:%{http_code}"
+], input=json.dumps(payload), text=True, capture_output=True, timeout=40)
+body, _, status = response.stdout.rpartition("HTTP_STATUS:")
+if response.returncode != 0 or status.strip() not in ("200", "201", "202"):
+    print("EMAIL_SEND_FAILED HTTP " + status.strip() + " " + body[:2000] + " " + response.stderr[:500])
+    raise SystemExit(1)
+print("EMAIL_SENT " + body[:1000])
