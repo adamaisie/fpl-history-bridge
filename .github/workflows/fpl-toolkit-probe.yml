@@ -6,7 +6,7 @@ on:
       - 'fpl_toolkit_odds.py'
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 jobs:
   probe:
     runs-on: ubuntu-latest
@@ -17,4 +17,15 @@ jobs:
         with:
           python-version: '3.12'
       - name: Fetch public odds page and check markets
-        run: python fpl_toolkit_odds.py
+        run: |
+          mkdir -p verification
+          python fpl_toolkit_odds.py > verification/odds-probe.log 2>&1 && echo PASS > verification/odds-probe.status || echo FAIL > verification/odds-probe.status
+          cat verification/odds-probe.log
+      - name: Commit verification evidence
+        if: always()
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add verification/odds-probe.log verification/odds-probe.status
+          git commit -m 'Record FPL Toolkit probe results' || true
+          git push
