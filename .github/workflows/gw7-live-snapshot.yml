@@ -1,0 +1,42 @@
+name: GW7 live snapshot
+on:
+  push:
+    paths:
+      - 'verification/gw7-request.txt'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Fetch official FPL GW7 data
+        run: |
+          python - <<'PY'
+          import json, urllib.request, pathlib, datetime
+          base='https://fantasy.premierleague.com/api/'
+          def get(path):
+              req=urllib.request.Request(base+path,headers={'User-Agent':'Mozilla/5.0','Accept':'application/json'})
+              with urllib.request.urlopen(req,timeout=30) as r:return json.load(r)
+          picks=get('entry/3363511/event/7/picks/')
+          bootstrap=get('bootstrap-static/')
+          live=get('event/7/live/')
+          players={p['id']:p for p in bootstrap['elements']}
+          live_players={p['id']:p for p in live['elements']}
+          teams={t['id']:t['short_name'] for t in bootstrap['teams']}
+          out={'retrieved_at':datetime.datetime.now(datetime.timezone.utc).isoformat(),'entry_history':picks.get('entry_history'),'active_chip':picks.get('active_chip'),'automatic_subs':picks.get('automatic_subs'),'players':[]}
+          for pick in picks['picks']:
+              p=players[pick['element']]; s=live_players.get(p['id'],{}).get('stats',{})
+              out['players'].append({'name':p['web_name'],'team':teams[p['team']],'position':pick['position'],'captain':pick['is_captain'],'vice_captain':pick['is_vice_captain'],'multiplier':pick['multiplier'],'points':s.get('total_points'),'minutes':s.get('minutes'),'goals':s.get('goals_scored'),'assists':s.get('assists'),'bonus':s.get('bonus'),'xg':s.get('expected_goals'),'xa':s.get('expected_assists'),'xgc':s.get('expected_goals_conceded'),'defcon':s.get('defensive_contribution')})
+          pathlib.Path('verification/gw7-live.json').write_text(json.dumps(out,indent=2)+'\n')
+          PY
+      - name: Commit snapshot
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add verification/gw7-live.json
+          git diff --cached --quiet || (git commit -m 'Record official GW7 live snapshot' && git push)
